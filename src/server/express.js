@@ -11,7 +11,7 @@ expressApp.use("/public", express.static(process.env.PWD + "/src/public"));
 expressApp.use(cookieParser());
 
 expressApp.set("view engine", "ejs");
-expressApp.set("views", process.env.PWD + "/src/views");
+expressApp.set("views", process.env.PWD + "/src/server/views");
 
 const pem = createCertificate([{ name: "commonName", value: "localhost" }]);
 

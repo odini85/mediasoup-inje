@@ -9,8 +9,7 @@ class Lobby {
     const btnCreateRoomEl = document.querySelector("#uid_create_room");
 
     btnCreateRoomEl.addEventListener("click", async () => {
-      const res = await roomCreateAPI();
-      const { roomId } = res.data;
+      const { roomId } = await roomCreateAPI();
 
       window.location.href = `/room/join/${roomId}`;
     });

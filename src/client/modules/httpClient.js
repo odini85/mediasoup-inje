@@ -10,8 +10,11 @@ export class AxiosClient {
   }
 
   /** api 요청 통합 처리 */
-  apiCall(method, url, options) {
-    return this._instance.request(this._createRequest(method, url, options));
+  async apiCall(method, url, options) {
+    const res = await this._instance.request(
+      this._createRequest(method, url, options)
+    );
+    return res.data;
   }
 
   /** request 옵션 생성 */

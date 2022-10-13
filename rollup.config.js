@@ -9,7 +9,7 @@ export default [
     output: [
       {
         file: "src/public/js/client-bundle.js",
-        name: "Client",
+        name: "inje",
         format: "iife",
         sourcemap: "inline",
       },

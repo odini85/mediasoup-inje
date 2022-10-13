@@ -1,7 +1,7 @@
 export default {
   // http server ip, port, and peer timeout constant
   //
-  httpIp: "0.0.0.0",
+  httpIp: "127.0.0.1",
   httpPort: 3777,
   httpPeerStale: 15000,
 

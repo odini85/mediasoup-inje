@@ -1,8 +1,27 @@
 import mediasoup from "mediasoup-client";
-import { uuidv4, request, sleep, log, err } from "./utils";
+import { uuidv4, request, apiCall, sleep, log, err } from "./utils";
 import { CAM_VIDEO_SIMULCAST_ENCODINGS } from "./constant";
+import axios from "axios";
 
-class Client {
+window.axios = axios;
+class Lobby {
+  init() {
+    const btnCreateRoomEl = document.querySelector("#uid_create_room");
+
+    btnCreateRoomEl.addEventListener("click", async () => {
+      const res = await axios.get("/room/create");
+      const { roomId } = res.data;
+
+      window.location.href = `/room/join/${roomId}`;
+    });
+  }
+}
+
+class RoomJoin {
+  init() {}
+}
+
+class InjeRTC {
   constructor() {
     this.state = {
       myPeerId: uuidv4(),
@@ -367,4 +386,8 @@ class Client {
   }
 }
 
-export default new Client();
+export default {
+  client: new Client(),
+  lobby: new Lobby(),
+  roomJoin: new RoomJoin(),
+};

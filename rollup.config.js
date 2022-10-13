@@ -14,17 +14,24 @@ const plugins = [
   }),
 ];
 
-export default ["lobby", "join"].map((namespace) => {
+const createOutput = (filename) => {
   return {
-    input: `src/client/${namespace}.js`,
-    output: [
-      {
-        file: `src/public/js/${namespace}-bundle.js`,
-        name: namespace,
-        format: "iife",
-        sourcemap: "inline",
-      },
-    ],
-    plugins,
+    file: `src/public/js/${filename}-bundle.js`,
+    name: "Client",
+    format: "iife",
+    sourcemap: "inline",
   };
-});
+};
+
+export default [
+  {
+    input: "src/client/lobby.js",
+    output: [createOutput("lobby")],
+    plugins,
+  },
+  {
+    input: "src/client/main.js",
+    output: [createOutput("client")],
+    plugins,
+  },
+];

@@ -356,9 +356,3 @@ class InjeRTC {
       });
   }
 }
-
-export default {
-  injeRTC: new InjeRTC(),
-  lobby: new Lobby(),
-  roomJoin: new RoomJoin(),
-};

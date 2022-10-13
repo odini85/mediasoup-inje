@@ -1,41 +1,12 @@
-import express from "express";
-import * as mediasoup from "mediasoup";
-import https from "https";
 import debugModule from "debug";
 import { v4 as uuidv4 } from "uuid";
-import config from "./config";
+import expressApp from "./express";
 
-import createCertificate from "./createCertificate";
+import { registerRouter } from "./router";
 
 const log = debugModule("demo-app");
 const warn = debugModule("demo-app:WARN");
 const err = debugModule("demo-app:ERROR");
-const expressApp = express();
-
-expressApp.set("view engine", "pug");
-expressApp.set("views", __dirname + "/views");
-expressApp.use("/public", express.static(__dirname + "/public"));
-expressApp.get("/lobby", (_, res) => res.render("lobby"));
-// expressApp.get("/", (_, res) => res.render("sender"));
-// expressApp.get("/receiver", (_, res) => res.render("receiver"));
-// expressApp.get("/*", (_, res) => res.redirect("/"));
-expressApp.use(express.json({ type: "*/*" }));
-
-const pem = createCertificate([{ name: "commonName", value: "localhost" }]);
-httpsServer = https.createServer(
-  {
-    cert: Buffer.from(pem.cert),
-    key: Buffer.from(pem.private),
-  },
-  expressApp
-);
-
-httpsServer.listen(config.httpPort, config.httpIp, () => {
-  console.log(
-    `server is running and listening on ` +
-      `https://${config.httpIp}:${config.httpPort}`
-  );
-});
 
 class RoomManager {
   constructor() {

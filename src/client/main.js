@@ -1,21 +1,16 @@
 import mediasoup from "mediasoup-client";
-import { uuidv4, request, apiCall, sleep, log, err } from "./utils";
+import { v4 as uuidv4 } from "uuid";
+import { sleep, log, err } from "./utils";
 import { CAM_VIDEO_SIMULCAST_ENCODINGS } from "./constant";
-import axios from "axios";
-
-window.axios = axios;
-class Lobby {
-  init() {
-    const btnCreateRoomEl = document.querySelector("#uid_create_room");
-
-    btnCreateRoomEl.addEventListener("click", async () => {
-      const res = await axios.get("/room/create");
-      const { roomId } = res.data;
-
-      window.location.href = `/room/join/${roomId}`;
-    });
-  }
-}
+import {
+  joinAsNewPeerAPI,
+  syncAPI,
+  connectTransportAPI,
+  recvTrackAPI,
+  resumeConsumerAPI,
+  createTransportAPI,
+  sendTrackAPI,
+} from "./apis";
 
 class RoomJoin {
   init() {}
@@ -52,12 +47,8 @@ class InjeRTC {
 
     try {
       // http 요청 - 새로운 피어임을 알린다.
-      const res = await request({
-        endpoint: "join-as-new-peer",
-        method: "post",
-        payload: {
-          peerId: myPeerId,
-        },
+      const res = await joinAsNewPeerAPI({
+        peerId: myPeerId,
       });
       const { routerRtpCapabilities } = res;
       // mediasoup-client device가 로드되지 않은 경우(처음 연결)
@@ -93,12 +84,8 @@ class InjeRTC {
   async pollAndUpdate() {
     const { myPeerId } = this.state;
     // http 요청
-    const res = await request({
-      endpoint: "sync",
-      method: "post",
-      payload: {
-        peerId: myPeerId,
-      },
+    const res = await syncAPI({
+      peerId: myPeerId,
     });
     const { peers, error } = res;
 
@@ -185,10 +172,9 @@ class InjeRTC {
      */
     let transport;
     // http 요청
-    const { transportOptions } = await request({
-      endpoint: "create-transport",
-      method: "post",
-      payload: { peerId: myPeerId, direction },
+    const { transportOptions } = await createTransportAPI({
+      peerId: myPeerId,
+      direction,
     });
 
     if (direction === "recv") {
@@ -209,14 +195,10 @@ class InjeRTC {
       async ({ dtlsParameters }, successCallback, errorCallback) => {
         log("transport connect event", direction);
         // http 요청
-        const { error } = await request({
-          endpoint: "connect-transport",
-          method: "post",
-          payload: {
-            peerId: myPeerId,
-            transportId: transportOptions.id,
-            dtlsParameters,
-          },
+        const { error } = await connectTransportAPI({
+          peerId: myPeerId,
+          transportId: transportOptions.id,
+          dtlsParameters,
         });
         if (error) {
           err("error connecting transport", direction, error);
@@ -245,17 +227,13 @@ class InjeRTC {
            * 성공 시 successCallback() 또는 호출 실패 시 errorCallback()  호출
            */
           // http 요청
-          const { error, id } = await request({
-            endpoint: "send-track",
-            method: "post",
-            payload: {
-              peerId: myPeerId,
-              transportId: transportOptions.id,
-              kind,
-              rtpParameters,
-              paused: false,
-              appData,
-            },
+          const { error, id } = await sendTrackAPI({
+            peerId: myPeerId,
+            transportId: transportOptions.id,
+            kind,
+            rtpParameters,
+            paused: false,
+            appData,
           });
           if (error) {
             err("error setting up server-side producer", error);
@@ -311,14 +289,11 @@ class InjeRTC {
      * http 요청 - 서버에 서버 측 consumer 객체를 만들고 전송하도록 요청하고
      * 클라이언트 측 consumer를 만드는 데 필요한 정보를 백업한다.
      */
-    const consumerParameters = await request({
-      endpoint: "recv-track",
-      payload: {
-        peerId: myPeerId,
-        mediaTag,
-        mediaPeerId: peerId,
-        rtpCapabilities: device.rtpCapabilities,
-      },
+    const consumerParameters = await recvTrackAPI({
+      peerId: myPeerId,
+      mediaTag,
+      mediaPeerId: peerId,
+      rtpCapabilities: device.rtpCapabilities,
     });
     log("consumer parameters", consumerParameters);
     const consumer = await recvTransport.consume({
@@ -337,11 +312,7 @@ class InjeRTC {
       await sleep(100);
     }
     // 클라이언트 준비 완료, peer에 미디어를 보내달라고 요청한다.
-    await request({
-      endpoint: "resume-consumer",
-      method: "post",
-      payload: { peerId: myPeerId, consumerId: consumer.id },
-    });
+    await resumeConsumerAPI({ peerId: myPeerId, consumerId: consumer.id });
     await consumer.resume();
 
     // consumer 목록 추가
@@ -387,7 +358,7 @@ class InjeRTC {
 }
 
 export default {
-  client: new Client(),
+  injeRTC: new InjeRTC(),
   lobby: new Lobby(),
   roomJoin: new RoomJoin(),
 };

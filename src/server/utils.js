@@ -1,6 +1,6 @@
 import selfsigned from "selfsigned";
 
-export default function createCertificate(attributes) {
+export function createCertificate(attributes) {
   return selfsigned.generate(attributes, {
     algorithm: "sha256",
     days: 30,

@@ -5,11 +5,6 @@ export default {
   httpPort: 3777,
   httpPeerStale: 15000,
 
-  // ssl certs. we'll start as http instead of https if we don't have
-  // these
-  sslCrt: "fullchain.pem",
-  sslKey: "privkey.pem",
-
   mediasoup: {
     worker: {
       rtcMinPort: 40000,

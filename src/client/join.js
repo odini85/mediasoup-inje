@@ -1,12 +1,25 @@
-import { roomCreateAPI } from "./apis";
+import InjeRTC from "./inje-rtc";
 
-class Join {
-  constructor() {
+class RoomJoin {
+  constructor(myPeerId) {
+    // const peerId = roomId + userId;
+    this._injeRTC = new InjeRTC(myPeerId);
+
     this.init();
     console.log("join!!");
   }
-  init() {}
+  init() {
+    const cameraBtnEl = document.querySelector("#uid_camera_btn");
+    const myCameraEl = document.querySelector("#uid_my_camera");
+
+    cameraBtnEl.addEventListener("click", () => {
+      console.log("cameraBtnEl");
+
+      this._injeRTC.sendCameraStreams();
+    });
+  }
 }
 
-const join = new Join();
-export default join;
+export default {
+  RoomJoinClass: RoomJoin,
+};

@@ -7,6 +7,7 @@ export default {
 
   mediasoup: {
     worker: {
+      // 서버 구동하는 사람이 os 포트를 열어줘야함 (40000 ~ 49999)
       rtcMinPort: 40000,
       rtcMaxPort: 49999,
       logLevel: "debug",

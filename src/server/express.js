@@ -13,20 +13,27 @@ expressApp.use(cookieParser());
 expressApp.set("view engine", "ejs");
 expressApp.set("views", process.env.PWD + "/src/server/views");
 
-const pem = createCertificate([{ name: "commonName", value: "localhost" }]);
+// const pem = createCertificate([{ name: "commonName", value: "localhost" }]);
 
-const httpsServer = https.createServer(
-  {
-    cert: Buffer.from(pem.cert),
-    key: Buffer.from(pem.private),
-  },
-  expressApp
-);
+// const httpsServer = https.createServer(
+//   {
+//     cert: Buffer.from(pem.cert),
+//     key: Buffer.from(pem.private),
+//   },
+//   expressApp
+// );
 
-httpsServer.listen(config.httpPort, config.httpIp, () => {
+// httpsServer.listen(config.httpPort, config.httpIp, () => {
+//   console.log(
+//     `server is running and listening on ` +
+//       `https://${config.httpIp}:${config.httpPort}`
+//   );
+// });
+
+expressApp.listen(config.httpPort, config.httpIp, () => {
   console.log(
     `server is running and listening on ` +
-      `https://${config.httpIp}:${config.httpPort}`
+      `http://${config.httpIp}:${config.httpPort}`
   );
 });
 

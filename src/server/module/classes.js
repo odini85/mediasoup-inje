@@ -1,32 +1,97 @@
 import { v4 as uuidv4 } from "uuid";
 
-class RoomManager {
+export class RoomManager {
   constructor() {
-    this.rooms = new Map();
+    this._rooms = new Map();
   }
-  createRoom() {
-    const room = new Room();
-    this.rooms.set(room.roomId, room);
+  createRoom(user) {
+    const room = new Room(uuidv4(), user);
+    this._rooms.set(room.getId(), room);
 
     return room;
   }
+  getRoom(roomId) {
+    return this._rooms.get(roomId);
+  }
+  getRooms() {
+    return [...this._rooms.values()].map((room) => {
+      return {
+        roomId: room.getId(),
+        peerCount: room.getPeers().length,
+      };
+    });
+  }
 }
-
-export const roomManager = new RoomManager();
 
 class Room {
-  constructor() {
-    this.roomId = uuidv4();
-    this.peers = new Map();
+  constructor(id, user) {
+    this._id = id;
+    this._hostUser = user;
+    this._peers = new Map();
   }
-  joinPeer() {
-    const peer = new Peer();
-    this.peers.set(peer.peerId, peer);
+  getId() {
+    return this._id;
+  }
+  joinPeer(user) {
+    const peerId = `${this.getId()}.${user.getId()}`;
+    const peer = new Peer(peerId);
+    peer.setUser(user);
+    this._peers.set(peerId, peer);
+
+    return peer;
+  }
+  getHostUser() {
+    return this._hostUser;
+  }
+  getPeers() {
+    return [...this._peers.values()];
   }
 }
 
-class Peer {
+export class UserManager {
   constructor() {
-    this.peerId = uuidv4();
+    this._users = new Map();
+  }
+  createUser() {
+    const user = new User(uuidv4());
+    this._users.set(user.getId(), user);
+
+    return user;
+  }
+  getUser(userId) {
+    return this._users.get(userId);
+  }
+}
+
+export class Peer {
+  constructor(id) {
+    this._id = id;
+    this._user = null;
+    const now = Date.now();
+    this._mediasoup = {
+      joinTs: now,
+      lastSeenTs: now,
+      media: {},
+      consumerLayers: {},
+      stats: {},
+    };
+  }
+  getId() {
+    return this._id;
+  }
+  setUser(user) {
+    this._user = user;
+  }
+  getUser() {
+    return this._user;
+  }
+}
+
+class User {
+  constructor(id) {
+    this._id = id;
+  }
+  getId() {
+    return this._id;
   }
 }

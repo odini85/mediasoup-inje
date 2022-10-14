@@ -2,13 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
   </head>
   <body>
     <h1>Lobby</h1>
-    <button type="button" id="uid_create_room">방 만들기</button>
+    <p id="uid_user_id">before login</p>
+    <button type="button" id="uid_login_btn">로그인</button>
+    <button type="button" id="uid_create_room_btn">방 만들기</button>
+    <div id="uid_room_list"></div>
+    <h2>카메라 테스트</h2>
+    <button type="button" id="uid_camera_btn">카메라</button>
+    <div>
+      <video id="uid_my_camera"></video>
+    </div>
     <script src="/public/js/lobby-bundle.js"></script>
   </body>
 </html>

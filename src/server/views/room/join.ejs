@@ -2,14 +2,36 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
   </head>
   <body>
     <h1>Join</h1>
-    <button type="button" id="uid_login_btn">로그인</button>
-    로그인된 아이디 : <%= roomId %>
+    <div>로그인 id : <%= userId %></div>
+    <div>룸 id : <%= roomId %></div>
+    <h2>카메라</h2>
+    <button type="button" id="uid_camera_btn">카메라</button>
+    <div>
+      <video id="uid_my_camera"></video>
+    </div>
+    <h2>사용자 목록</h2>
+    <ul>
+      <% for(var i = 0; i < peers.length; i++){ %>
+      <li><%= JSON.stringify(peers[i]) %></li>
+      <% } %>
+    </ul>
+
     <script src="/public/js/join-bundle.js"></script>
+    <script>
+      const { RoomJoinClass } = window.join;
+      const roomJoin = new RoomJoinClass("<%= peerId %>");
+    </script>
   </body>
 </html>

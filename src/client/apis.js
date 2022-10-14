@@ -1,11 +1,18 @@
 import httpClient from "./modules/httpClient";
 
+export function loginAPI(payload) {
+  return httpClient.get("/login", payload);
+}
+
 export function roomCreateAPI() {
   return httpClient.get("/room/create");
 }
 
-// signaling
+export function roomListAPI() {
+  return httpClient.get("/room/list");
+}
 
+// signaling
 export function joinAsNewPeerAPI(payload) {
   return httpClient.post("/signaling/join-as-new-peer", payload);
 }

@@ -76,9 +76,10 @@ export function registerRouter(expressApp) {
     res.send("쿠키 생성완료!!");
   });
 
-  // roomState 데이터 구조에 peer를 추가하고 peer가 미디어를 수신하는 데 사용할 transport를 만든다.
-  // mediasoup-client device 초기화를 위한 라우터 rtpCapabilities를 반환한다.
+  // mediasoup router rtp capabilities 반환
   expressApp.get("/signaling/router-rtp-capabilities", async (req, res) => {
+    // roomState 데이터 구조에 peer를 추가하고 peer가 미디어를 수신하는 데 사용할 transport를 만든다.
+    // mediasoup-client device 초기화를 위한 라우터 rtpCapabilities를 반환한다.
     try {
       const routerRtpCapabilities =
         injeMediasoup.getMediasoupRouter().rtpCapabilities;
@@ -90,9 +91,10 @@ export function registerRouter(expressApp) {
     }
   });
 
-  // mediasoup transport 객체를 만들고
-  // 클라이언트에서 transport 객체를 만드는 데 필요한 정보를 반환한다.
+  // Mediasoup transport 생성
   expressApp.post("/signaling/create-transport", async (req, res) => {
+    // mediasoup transport 객체를 만들고
+    // 클라이언트에서 transport 객체를 만드는 데 필요한 정보를 반환한다.
     try {
       const { roomId, peerId, direction } = req.body;
       log("create-transport", peerId, direction);
@@ -126,8 +128,9 @@ export function registerRouter(expressApp) {
     }
   });
 
-  // 클라이언트의 `transport.on('connect')` 이벤트 핸들러 내부에서 호출된다.
+  // transport 연결
   expressApp.post("/signaling/connect-transport", async (req, res) => {
+    // 클라이언트의 `transport.on('connect')` 이벤트 핸들러 내부에서 호출된다.
     try {
       const { roomId, peerId, transportId, dtlsParameters } = req.body;
 
@@ -153,8 +156,9 @@ export function registerRouter(expressApp) {
     }
   });
 
-  // 클라이언트의 `transport.on('produce')` 이벤트 핸들러 내부에서 호출된다.
+  // track 전송
   expressApp.post("/signaling/send-track", async (req, res) => {
+    // 클라이언트의 `transport.on('produce')` 이벤트 핸들러 내부에서 호출된다.
     try {
       const {
         roomId,
@@ -188,14 +192,6 @@ export function registerRouter(expressApp) {
         log("producer's transport closed", producer.id);
         closeProducer(producer);
       });
-
-      // producer의 오디오 레벨을 모니터링한다
-      // audioLevelObserver.addProducer()를 실행했지만
-      // AudioLevelObserver 가 닫힌 producers를 자동으로 제거한다.
-      // 따라서 removeProducer()를 호출할 필요 없다
-      if (producer.kind === "audio") {
-        audioLevelObserver.addProducer({ producerId: producer.id });
-      }
 
       room.setTransport(producer);
       const peer = room.getPeer(peerId);

@@ -2,6 +2,12 @@ import mediasoup from "mediasoup-client";
 import { request, sleep, log, err } from "./utils";
 import { CAM_VIDEO_SIMULCAST_ENCODINGS } from "./constant";
 import httpClient from "./modules/httpClient";
+import {
+  getRouterRTPCapabilitiesAPI,
+  createTransportAPI,
+  connectTransportAPI,
+  sendTrackAPI,
+} from "./apis";
 
 export default class InjeRTC {
   constructor(myPeerId) {
@@ -30,9 +36,7 @@ export default class InjeRTC {
 
     try {
       // http 요청 - 새로운 피어임을 알린다.
-      const { routerRtpCapabilities } = await httpClient.get(
-        "/signaling/router-rtp-capabilities"
-      );
+      const { routerRtpCapabilities } = await getRouterRTPCapabilitiesAPI();
       // mediasoup-client device가 로드되지 않은 경우(처음 연결)
       if (!device.loaded) {
         // 디바이스를 초기화(로드) 한다.
@@ -89,16 +93,17 @@ export default class InjeRTC {
    */
   async createTransport(direction) {
     const { myPeerId, device } = this.state;
+    const roomId = myPeerId.split(".")[0];
     /**
      * 서버에 서버 측 transport 객체를 생성하도록 요청하고
      * 클라이언트 측 transport를 생성하는 데 필요한 정보를 다시 보내야한다.
      */
     let transport;
     // http 요청
-    const { transportOptions } = await request({
-      endpoint: "create-transport",
-      method: "post",
-      payload: { peerId: myPeerId, direction },
+    const { transportOptions } = await createTransportAPI({
+      roomId,
+      peerId: myPeerId,
+      direction,
     });
 
     if (direction === "recv") {
@@ -111,31 +116,26 @@ export default class InjeRTC {
 
     /**
      * mediasoup-client는 미디어가 처음으로 흐르기 시작해야 연결 이벤트를 보낸다.
-     * dtlsParameters를 서버로 보낸 다음 성공하면 successCallback()을 호출하고 실패하면 errorCallback()을 호출한다.
+     * dtlsParameters를 서버로 보낸 다음 성공하면 resolve()을 호출하고 실패하면 reject()을 호출한다.
      * 여기에서 구독하는 이벤트 들은 transport.produce()가 호출되어야 구독된다
      */
-    transport.on(
-      "connect",
-      async ({ dtlsParameters }, successCallback, errorCallback) => {
-        log("transport connect event", direction);
-        // http 요청
-        const { error } = await request({
-          endpoint: "connect-transport",
-          method: "post",
-          payload: {
-            peerId: myPeerId,
-            transportId: transportOptions.id,
-            dtlsParameters,
-          },
-        });
-        if (error) {
-          err("error connecting transport", direction, error);
-          errorCallback();
-          return;
-        }
-        successCallback();
+    transport.on("connect", async ({ dtlsParameters }, resolve, reject) => {
+      log("transport connect event", direction);
+      // http 요청
+      const { error } = await connectTransportAPI({
+        roomId,
+        peerId: myPeerId,
+        transportId: transportOptions.id,
+        dtlsParameters,
+      });
+
+      if (error) {
+        err("error connecting transport", direction, error);
+        reject();
+        return;
       }
-    );
+      resolve();
+    });
 
     if (direction === "send") {
       /**
@@ -144,35 +144,28 @@ export default class InjeRTC {
        */
       transport.on(
         "produce",
-        async (
-          { kind, rtpParameters, appData },
-          successCallback,
-          errorCallback
-        ) => {
+        async ({ kind, rtpParameters, appData }, resolve, reject) => {
           log("transport produce event", appData.mediaTag);
           /**
            * 서버 측 producer 객체를 설정하기 위해 서버에게 우리의 정보를 전달하고 생산자 ID를 반환 받는다.
-           * 성공 시 successCallback() 또는 호출 실패 시 errorCallback()  호출
+           * 성공 시 resolve() 또는 호출 실패 시 reject()  호출
            */
           // http 요청
-          const { error, id } = await request({
-            endpoint: "send-track",
-            method: "post",
-            payload: {
-              peerId: myPeerId,
-              transportId: transportOptions.id,
-              kind,
-              rtpParameters,
-              paused: false,
-              appData,
-            },
+          const { error, id } = await sendTrackAPI({
+            roomId,
+            peerId: myPeerId,
+            transportId: transportOptions.id,
+            kind,
+            rtpParameters,
+            paused: false,
+            appData,
           });
           if (error) {
             err("error setting up server-side producer", error);
-            errorCallback();
+            reject();
             return;
           }
-          successCallback({ id });
+          resolve({ id });
         }
       );
     }

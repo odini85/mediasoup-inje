@@ -28,6 +28,8 @@ class Room {
     this._id = id;
     this._hostUser = user;
     this._peers = new Map();
+    this._transports = new Map();
+    this._producers = new Map();
   }
   getId() {
     return this._id;
@@ -45,6 +47,21 @@ class Room {
   }
   getPeers() {
     return [...this._peers.values()];
+  }
+  getPeer(peerId) {
+    return this._peers.get(peerId);
+  }
+  getTransport(transportId) {
+    return this._transports.get(transportId);
+  }
+  setTransport(transport) {
+    this._transports.set(transport.id, transport);
+  }
+  getProducer(producerId) {
+    return this._producers.get(producerId);
+  }
+  setProducer(producer) {
+    this._producers.set(producer.id, producer);
   }
 }
 

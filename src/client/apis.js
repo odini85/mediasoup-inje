@@ -13,8 +13,8 @@ export function roomListAPI() {
 }
 
 // signaling
-export function getRouterRTPCapabilitiesAPI(payload) {
-  return httpClient.get("/signaling/router-rtp-capabilities", payload);
+export function getRouterRTPCapabilitiesAPI() {
+  return httpClient.get("/signaling/router-rtp-capabilities");
 }
 
 export function syncAPI(data) {

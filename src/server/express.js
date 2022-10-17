@@ -5,6 +5,9 @@ import { createCertificate } from "./utils";
 import config from "./config";
 
 const expressApp = express();
+if (!process.env.PWD) {
+  process.env.PWD = process.cwd();
+}
 
 expressApp.use(express.json({ type: "*/*" }));
 expressApp.use("/public", express.static(process.env.PWD + "/src/public"));

@@ -11,9 +11,9 @@ export class AxiosClient {
 
   /** api 요청 통합 처리 */
   async apiCall(method, url, options) {
-    const res = await this._instance.request(
-      this._createRequest(method, url, options)
-    );
+    const requestOptions = this._createRequest(method, url, options);
+
+    const res = await this._instance.request(requestOptions);
     return res.data;
   }
 
@@ -25,13 +25,13 @@ export class AxiosClient {
       method,
       url,
       ...omit(defaults, "headers"),
+      headers: {
+        ...defaults.headers[method],
+        "content-type": "application/json",
+        ...options?.headers,
+      },
       data: options?.data,
       params: options?.params,
-    };
-    options.headers = {
-      "content-type": "application/json",
-      ...defaults.headers[method],
-      ...options.headers,
     };
 
     return options;

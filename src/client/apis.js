@@ -13,30 +13,30 @@ export function roomListAPI() {
 }
 
 // signaling
-export function joinAsNewPeerAPI(payload) {
-  return httpClient.post("/signaling/join-as-new-peer", payload);
+export function getRouterRTPCapabilitiesAPI() {
+  return httpClient.get("/signaling/router-rtp-capabilities");
 }
 
-export function syncAPI(payload) {
-  return httpClient.post("/signaling/sync", payload);
+export function syncAPI(data) {
+  return httpClient.post("/signaling/sync", { data });
 }
 
-export function connectTransportAPI(payload) {
-  return httpClient.post("/signaling/connect-transport", payload);
+export function connectTransportAPI(data) {
+  return httpClient.post("/signaling/connect-transport", { data });
 }
 
-export function recvTrackAPI(payload) {
-  return httpClient.post("/signaling/recv-track", payload);
+export function recvTrackAPI(data) {
+  return httpClient.post("/signaling/recv-track", { data });
 }
 
-export function resumeConsumerAPI(payload) {
-  return httpClient.post("/signaling/resume-consumer", payload);
+export function resumeConsumerAPI(data) {
+  return httpClient.post("/signaling/resume-consumer", { data });
 }
 
-export function createTransportAPI(payload) {
-  return httpClient.post("/signaling/create-transport", payload);
+export function createTransportAPI(data) {
+  return httpClient.post("/signaling/create-transport", { data });
 }
 
-export function sendTrackAPI(payload) {
-  return httpClient.post("/signaling/send-track", payload);
+export function sendTrackAPI(data) {
+  return httpClient.post("/signaling/send-track", { data });
 }

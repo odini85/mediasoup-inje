@@ -9,12 +9,21 @@ const err = debugModule("demo-app:ERROR");
 
 class InjeMediasoup {
   constructor() {
-    startMediasoup();
+    this._worker = null;
+    this._router = null;
+    this._startMediasoup();
+  }
+
+  getMediasoupWorker() {
+    return this._worker;
+  }
+  getMediasoupRouter() {
+    return this._router;
   }
   //
   // 단일 worker, router로 mediasoup 시작
   //
-  async startMediasoup() {
+  async _startMediasoup() {
     const worker = await mediasoup.createWorker({
       logLevel: config.mediasoup.worker.logLevel,
       logTags: config.mediasoup.worker.logTags,
@@ -31,7 +40,8 @@ class InjeMediasoup {
       mediaCodecs: config.mediasoup.router.mediaCodecs,
     });
 
-    return { mediasoupWorker: worker, mediasoupRouter: router };
+    this._worker = worker;
+    this._router = router;
   }
 }
 

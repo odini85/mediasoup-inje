@@ -63,3 +63,15 @@ export function createCertificate(attributes) {
     ],
   });
 }
+
+export function encodePeerId({ roomId, userId }) {
+  return `${roomId}.${userId}`;
+}
+
+export function decodePeerId(peerId) {
+  const [roomId, userId] = peerId.split(".");
+  return {
+    roomId,
+    userId,
+  };
+}

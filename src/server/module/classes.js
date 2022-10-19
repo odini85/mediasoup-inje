@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { MEDIA_TYPE, TRANSPORT_DIRECTION } from "../constant";
 
 export class RoomManager {
   constructor() {
@@ -28,8 +29,6 @@ class Room {
     this._id = id;
     this._hostUser = user;
     this._peers = new Map();
-    this._transports = new Map();
-    this._producers = new Map();
   }
   getId() {
     return this._id;
@@ -51,18 +50,6 @@ class Room {
   getPeer(peerId) {
     return this._peers.get(peerId);
   }
-  getTransport(transportId) {
-    return this._transports.get(transportId);
-  }
-  setTransport(transport) {
-    this._transports.set(transport.id, transport);
-  }
-  getProducer(producerId) {
-    return this._producers.get(producerId);
-  }
-  setProducer(producer) {
-    this._producers.set(producer.id, producer);
-  }
 }
 
 export class UserManager {
@@ -80,6 +67,15 @@ export class UserManager {
   }
 }
 
+class User {
+  constructor(id) {
+    this._id = id;
+  }
+  getId() {
+    return this._id;
+  }
+}
+
 export class Peer {
   constructor(id) {
     this._id = id;
@@ -92,6 +88,11 @@ export class Peer {
       consumerLayers: {},
       stats: {},
     };
+    this._transport = {
+      [TRANSPORT_DIRECTION.SEND]: null,
+      [TRANSPORT_DIRECTION.RECEIVE]: null,
+    };
+    this._producer = null;
   }
   getId() {
     return this._id;
@@ -102,13 +103,20 @@ export class Peer {
   getUser() {
     return this._user;
   }
-}
-
-class User {
-  constructor(id) {
-    this._id = id;
+  setTransport(direction, transport) {
+    this._transport[direction] = transport;
+    this._transport[transport.id] = transport;
   }
-  getId() {
-    return this._id;
+  getTransportOfDirection(direction) {
+    return this._transport[direction];
+  }
+  getTransport(transportId) {
+    return this._transport[transportId];
+  }
+  setProducer(producer) {
+    this._producer = producer;
+  }
+  getProducer() {
+    return this._producer;
   }
 }

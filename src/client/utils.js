@@ -18,3 +18,15 @@ export async function request({ endpoint, method = "POST", payload = {} }) {
   });
   return await response.json();
 }
+
+export function encodePeerId({ roomId, userId }) {
+  return `${roomId}.${userId}`;
+}
+
+export function decodePeerId(peerId) {
+  const [roomId, userId] = peerId.split(".");
+  return {
+    roomId,
+    userId,
+  };
+}

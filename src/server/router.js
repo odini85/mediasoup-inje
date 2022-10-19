@@ -2,6 +2,7 @@ import { roomManager, userManager } from "./store";
 import debugModule from "debug";
 import injeMediasoup from "./module/inje-mediasoup";
 import config from "./config";
+import { decodePeerId } from "./utils";
 
 const log = debugModule("demo-app");
 const warn = debugModule("demo-app:WARN");
@@ -96,7 +97,7 @@ export function registerRouter(expressApp) {
     // mediasoup transport 객체를 만들고
     // 클라이언트에서 transport 객체를 만드는 데 필요한 정보를 반환한다.
     try {
-      const { roomId, peerId, direction } = req.body;
+      const { peerId, direction } = req.body;
       log("create-transport", peerId, direction);
 
       const { listenIps, initialAvailableOutgoingBitrate } =
@@ -111,8 +112,10 @@ export function registerRouter(expressApp) {
         appData: { peerId, clientDirection: direction },
       });
 
+      const { roomId } = decodePeerId(peerId);
       const room = roomManager.getRoom(roomId);
-      room.setTransport(transport);
+      const peer = room.getPeer(peerId);
+      peer.setTransport(direction, transport);
 
       res.send({
         transportOptions: {
@@ -132,10 +135,12 @@ export function registerRouter(expressApp) {
   expressApp.post("/signaling/connect-transport", async (req, res) => {
     // 클라이언트의 `transport.on('connect')` 이벤트 핸들러 내부에서 호출된다.
     try {
-      const { roomId, peerId, transportId, dtlsParameters } = req.body;
+      const { peerId, transportId, dtlsParameters } = req.body;
 
+      const { roomId } = decodePeerId(peerId);
       const room = roomManager.getRoom(roomId);
-      const transport = room.getTransport(transportId);
+      const peer = room.getPeer(peerId);
+      const transport = peer.getTransport(transportId);
 
       if (!transport) {
         err(
@@ -161,7 +166,6 @@ export function registerRouter(expressApp) {
     // 클라이언트의 `transport.on('produce')` 이벤트 핸들러 내부에서 호출된다.
     try {
       const {
-        roomId,
         peerId,
         transportId,
         kind,
@@ -170,9 +174,10 @@ export function registerRouter(expressApp) {
         appData,
       } = req.body;
 
+      const { roomId } = decodePeerId(peerId);
       const room = roomManager.getRoom(roomId);
-
-      const transport = room.getTransport(transportId);
+      const peer = room.getPeer(peerId);
+      const transport = peer.getTransport(transportId);
 
       if (!transport) {
         err(`send-track: server-side transport ${transportId} not found`);
@@ -193,9 +198,9 @@ export function registerRouter(expressApp) {
         closeProducer(producer);
       });
 
-      room.setTransport(producer);
-      const peer = room.getPeer(peerId);
-      peer.media[appData.mediaTag] = {
+      peer.setProducer(producer);
+
+      peer.media[appData.mediaType] = {
         paused,
         encodings: rtpParameters.encodings,
       };

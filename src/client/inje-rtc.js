@@ -1,6 +1,10 @@
 import mediasoup from "mediasoup-client";
 import { request, sleep, log, err } from "./utils";
-import { CAM_VIDEO_SIMULCAST_ENCODINGS } from "./constant";
+import {
+  CAM_VIDEO_SIMULCAST_ENCODINGS,
+  MEDIA_TYPE,
+  TRANSPORT_DIRECTION,
+} from "./constant";
 import httpClient from "./modules/httpClient";
 import {
   getRouterRTPCapabilitiesAPI,
@@ -31,17 +35,18 @@ export default class InjeRTC {
    * @description 회의를 제어한다.
    * @returns
    */
-  async loadDevice() {
+  async _loadDevice() {
     const { device } = this.state;
+    // mediasoup-client device가 로드되지 않은 경우(처음 연결)
+    if (device.loaded) {
+      return;
+    }
 
     try {
       // http 요청 - 새로운 피어임을 알린다.
       const { routerRtpCapabilities } = await getRouterRTPCapabilitiesAPI();
-      // mediasoup-client device가 로드되지 않은 경우(처음 연결)
-      if (!device.loaded) {
-        // 디바이스를 초기화(로드) 한다.
-        await device.load({ routerRtpCapabilities });
-      }
+      // 디바이스를 초기화(로드) 한다.
+      await device.load({ routerRtpCapabilities });
     } catch (e) {
       console.error(e);
       return;
@@ -49,29 +54,10 @@ export default class InjeRTC {
   }
 
   /**
-   * @title 카메라 스트림 전송
-   */
-  async sendCameraStreams() {
-    await this.loadDevice();
-    await this.startCamera();
-
-    if (!this.state.sendTransport) {
-      this.state.sendTransport = await this.createTransport("send");
-    }
-
-    // 비디오 전송을 시작
-    this.state.camVideoProducer = await this.state.sendTransport.produce({
-      track: this.state.localCam.getVideoTracks()[0],
-      encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
-      appData: { mediaTag: "cam-video" },
-    });
-  }
-
-  /**
    * @title 카메라 시작
    * @returns
    */
-  async startCamera() {
+  async _startCam() {
     if (this.state.localCam) {
       return;
     }
@@ -86,14 +72,84 @@ export default class InjeRTC {
   }
 
   /**
+   * @title 화면 공유 시작
+   * @returns
+   */
+  async _startScreen() {}
+
+  _getProduceParam(mediaType) {
+    switch (mediaType) {
+      case MEDIA_TYPE.CAM_VIDEO: {
+        return {
+          track: this.state.localCam.getVideoTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+      case MEDIA_TYPE.CAM_AUDIO: {
+        return {
+          track: this.state.localCam.getAudioTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+      case MEDIA_TYPE.SCREEN_VIDEO: {
+        return {
+          track: this.state.localCam.getVideoTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+      case MEDIA_TYPE.SCREEN_AUDIO: {
+        return {
+          track: this.state.localCam.getVideoTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+    }
+  }
+
+  /**
+   * @title 카메라 스트림 전송
+   */
+  async produce(mediaType) {
+    await this._loadDevice();
+
+    switch (mediaType) {
+      case MEDIA_TYPE.CAM_VIDEO:
+      case MEDIA_TYPE.CAM_AUDIO: {
+        await this._startCam();
+        break;
+      }
+      case MEDIA_TYPE.SCREEN_VIDEO:
+      case MEDIA_TYPE.SCREEN_AUDIO: {
+        await this._startScreen();
+        break;
+      }
+    }
+
+    if (!this.state.sendTransport) {
+      this.state.sendTransport = await this._createTransport(
+        TRANSPORT_DIRECTION.SEND
+      );
+    }
+
+    const produceParam = this._getProduceParam(mediaType);
+
+    this.state.camVideoProducer = await this.state.sendTransport.produce(
+      produceParam
+    );
+  }
+
+  /**
    * @title transport 생성
    * @description transport를 생성하고, 전송 방향에 맞는 signal 로직을 연결한다.
    * @param {*} direction
    * @returns
    */
-  async createTransport(direction) {
+  async _createTransport(direction) {
     const { myPeerId, device } = this.state;
-    const roomId = myPeerId.split(".")[0];
     /**
      * 서버에 서버 측 transport 객체를 생성하도록 요청하고
      * 클라이언트 측 transport를 생성하는 데 필요한 정보를 다시 보내야한다.
@@ -101,7 +157,6 @@ export default class InjeRTC {
     let transport;
     // http 요청
     const { transportOptions } = await createTransportAPI({
-      roomId,
       peerId: myPeerId,
       direction,
     });
@@ -123,10 +178,10 @@ export default class InjeRTC {
       log("transport connect event", direction);
       // http 요청
       const { error } = await connectTransportAPI({
-        roomId,
         peerId: myPeerId,
         transportId: transportOptions.id,
         dtlsParameters,
+        direction,
       });
 
       if (error) {
@@ -145,14 +200,13 @@ export default class InjeRTC {
       transport.on(
         "produce",
         async ({ kind, rtpParameters, appData }, resolve, reject) => {
-          log("transport produce event", appData.mediaTag);
+          log("transport produce event", appData.mediaType);
           /**
            * 서버 측 producer 객체를 설정하기 위해 서버에게 우리의 정보를 전달하고 생산자 ID를 반환 받는다.
            * 성공 시 resolve() 또는 호출 실패 시 reject()  호출
            */
           // http 요청
           const { error, id } = await sendTrackAPI({
-            roomId,
             peerId: myPeerId,
             transportId: transportOptions.id,
             kind,
@@ -187,11 +241,11 @@ export default class InjeRTC {
   /**
    * @title track 구독
    * @param {string} peerId
-   * @param {*} mediaTag
+   * @param {*} mediaType
    * @returns
    */
-  async subscribeToTrack(peerId, mediaTag) {
-    log("subscribe to track", peerId, mediaTag);
+  async subscribeToTrack(peerId, mediaType) {
+    log("subscribe to track", peerId, mediaType);
 
     // receive transport 를 갖고 있지 않다면 receive transport를 생성한다.
     if (!this.state.recvTransport) {
@@ -201,12 +255,12 @@ export default class InjeRTC {
 
     // track을 위한 컨슈머 검색
     const hasConsumer = !!consumers.find((c) => {
-      return c.appData.peerId === peerId && c.appData.mediaTag === mediaTag;
+      return c.appData.peerId === peerId && c.appData.mediaType === mediaType;
     });
 
     if (hasConsumer) {
       // consumer 존재한다면, 호출되지 않아야 하므로 리턴처리
-      err("already have consumer for track", peerId, mediaTag);
+      err("already have consumer for track", peerId, mediaType);
       return;
     }
 
@@ -218,7 +272,7 @@ export default class InjeRTC {
       endpoint: "recv-track",
       payload: {
         peerId: myPeerId,
-        mediaTag,
+        mediaType,
         mediaPeerId: peerId,
         rtpCapabilities: device.rtpCapabilities,
       },
@@ -226,7 +280,7 @@ export default class InjeRTC {
     log("consumer parameters", consumerParameters);
     const consumer = await recvTransport.consume({
       ...consumerParameters,
-      appData: { peerId, mediaTag },
+      appData: { peerId, mediaType },
     });
 
     log("created new consumer", consumer.id);

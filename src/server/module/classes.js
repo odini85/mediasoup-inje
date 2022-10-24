@@ -47,8 +47,36 @@ class Room {
   getPeers() {
     return [...this._peers.values()];
   }
+  getPeersVo() {
+    return this.getPeers().map((peer) => {
+      return peer.getVo();
+    });
+  }
+  // produce 중인 peers 반환
+  getProducersVo() {
+    const returnValue = [];
+    this._peers.forEach((peer, key) => {
+      const producer = peer.getProducer();
+      if (producer && !producer.closed && !producer.paused) {
+        returnValue.push(new ProducerInfoVo(peer));
+      }
+    });
+
+    return returnValue;
+  }
   getPeer(peerId) {
     return this._peers.get(peerId);
+  }
+}
+
+class ProducerInfoVo {
+  constructor(peer) {
+    const producer = peer.getProducer();
+
+    this.peerId = peer.getId();
+    this.id = producer.id;
+    this.paused = producer.paused;
+    this.closed = producer.closed;
   }
 }
 
@@ -74,6 +102,15 @@ class User {
   getId() {
     return this._id;
   }
+  getVo() {
+    return new UserVo(this);
+  }
+}
+
+class UserVo {
+  constructor(user) {
+    this.id = user.getId();
+  }
 }
 
 export class Peer {
@@ -93,6 +130,7 @@ export class Peer {
       [TRANSPORT_DIRECTION.RECEIVE]: null,
     };
     this._producer = null;
+    this._consumers = new Map();
   }
   getId() {
     return this._id;
@@ -118,5 +156,21 @@ export class Peer {
   }
   getProducer() {
     return this._producer;
+  }
+  addConsumer(consumer) {
+    this._consumers.set(consumer.id, consumer);
+  }
+  getConsumer(consumerId) {
+    return this._consumers.get(consumerId);
+  }
+  getVo() {
+    return new PeerVo(this);
+  }
+}
+
+class PeerVo {
+  constructor(peer) {
+    this.id = peer.getId();
+    this.user = peer.getUser().getVo();
   }
 }

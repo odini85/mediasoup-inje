@@ -13,7 +13,7 @@ class Lobby {
     btnCreateRoomEl.addEventListener("click", async () => {
       const { roomId } = await roomCreateAPI();
 
-      window.location.href = `/room/join/${roomId}`;
+      window.location.href = `/room/${roomId}/join`;
     });
 
     // 로그인
@@ -57,8 +57,8 @@ class Lobby {
 
     const html = response
       .map(
-        ({ roomId, userCount }) =>
-          `<a href="/room/join/${roomId}">${roomId} : ${userCount}</a><br />`
+        ({ roomId, peerCount }) =>
+          `<a href="/room/${roomId}/join">${roomId} : ${peerCount}</a><br />`
       )
       .join("");
     const container = document.querySelector("#uid_room_list");

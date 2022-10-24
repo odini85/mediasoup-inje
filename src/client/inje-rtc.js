@@ -11,12 +11,14 @@ import {
   createTransportAPI,
   connectTransportAPI,
   sendTrackAPI,
+  recvTrackAPI,
+  resumeConsumerAPI,
 } from "./apis";
 
 export default class InjeRTC {
   constructor(myPeerId) {
     this.state = {
-      myPeerId: myPeerId,
+      myPeerId,
       device: new mediasoup.Device(),
       localCam: null,
       joined: false,
@@ -239,23 +241,25 @@ export default class InjeRTC {
   }
 
   /**
-   * @title track 구독
-   * @param {string} peerId
-   * @param {*} mediaType
-   * @returns
+   * @title 스트림 소비
    */
-  async subscribeToTrack(peerId, mediaType) {
-    log("subscribe to track", peerId, mediaType);
+  async consume(mediaType, consumePeerId) {
+    await this._loadDevice();
 
     // receive transport 를 갖고 있지 않다면 receive transport를 생성한다.
     if (!this.state.recvTransport) {
-      this.state.recvTransport = await this.createTransport("recv");
+      this.state.recvTransport = await this._createTransport(
+        TRANSPORT_DIRECTION.RECEIVE
+      );
     }
     const { myPeerId, consumers, recvTransport, device } = this.state;
 
     // track을 위한 컨슈머 검색
-    const hasConsumer = !!consumers.find((c) => {
-      return c.appData.peerId === peerId && c.appData.mediaType === mediaType;
+    const hasConsumer = !!consumers.find((consumer) => {
+      return (
+        consumer.appData.peerId === consumePeerId &&
+        consumer.appData.mediaType === mediaType
+      );
     });
 
     if (hasConsumer) {
@@ -268,19 +272,16 @@ export default class InjeRTC {
      * http 요청 - 서버에 서버 측 consumer 객체를 만들고 전송하도록 요청하고
      * 클라이언트 측 consumer를 만드는 데 필요한 정보를 백업한다.
      */
-    const consumerParameters = await request({
-      endpoint: "recv-track",
-      payload: {
-        peerId: myPeerId,
-        mediaType,
-        mediaPeerId: peerId,
-        rtpCapabilities: device.rtpCapabilities,
-      },
+    const consumerParameters = await recvTrackAPI({
+      peerId: myPeerId,
+      mediaType,
+      mediaPeerId: consumePeerId,
+      rtpCapabilities: device.rtpCapabilities,
     });
     log("consumer parameters", consumerParameters);
     const consumer = await recvTransport.consume({
       ...consumerParameters,
-      appData: { peerId, mediaType },
+      appData: { peerId: consumePeerId, mediaType },
     });
 
     log("created new consumer", consumer.id);
@@ -294,48 +295,45 @@ export default class InjeRTC {
       await sleep(100);
     }
     // 클라이언트 준비 완료, peer에 미디어를 보내달라고 요청한다.
-    await request({
-      endpoint: "resume-consumer",
-      method: "post",
-      payload: { peerId: myPeerId, consumerId: consumer.id },
-    });
+    await resumeConsumerAPI({ peerId: myPeerId, consumerId: consumer.id });
+
     await consumer.resume();
 
     // consumer 목록 추가
     consumers.push(consumer);
 
-    await this.addVideoAudio(consumer);
+    // 비디오 추가
+    await this._addVideo(consumer, consumePeerId);
+
+    return consumer;
   }
 
   /**
-   * @title 비디오 또는 오디오 추가
+   * @title 비디오 추가
    * @param {*} consumer
    * @returns
    */
-  addVideoAudio(consumer) {
+  _addVideo(consumer, peerId) {
     if (!(consumer && consumer.track)) {
       return;
     }
-    const el = document.createElement(consumer.kind);
-    /**
-     * 오디오와 비디오 엘리먼트를 만들기 위해서 일부 어트리뷰트를 설정한다.
-     * 오디오를 재생하려면 mic/camera에서 캡처해야 한다.
-     */
-    if (consumer.kind === "video") {
-      el.setAttribute("playsinline", true);
-    } else {
-      el.setAttribute("playsinline", true);
-      el.setAttribute("autoplay", true);
-    }
-    document.querySelector("#video").appendChild(el);
-    el.srcObject = new MediaStream([consumer.track.clone()]);
-    el.consumer = consumer;
+
+    const videoEl = document.createElement(consumer.kind);
+    const wrapperEl = document.querySelector("#uid_room_peers_list");
+    wrapperEl.appendChild(videoEl);
+    console.log({ wrapperEl, peerId });
+    // const videoEl = wrapperEl.querySelector("video");
+
+    videoEl.setAttribute("playsinline", true);
+    videoEl.srcObject = new MediaStream([consumer.track.clone()]);
+
     /**
      * play의 성공을 기다리기보다 play 하기 전에 yield 하고 리턴한다.
      * play()는 producer 일시 중지를 해제할 때까지
      * producer 일시 중지 트랙에서 성공하지 못한다.
      */
-    el.play()
+    videoEl
+      .play()
       .then(() => {})
       .catch((e) => {
         err(e);

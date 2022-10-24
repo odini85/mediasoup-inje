@@ -7,7 +7,7 @@
   "license": "ISC",
   "scripts": {
     "client": "npx rollup -c -w",
-    "server": "nodemon"
+    "server": "nodemon --inspect ./bin/www"
   },
   "devDependencies": {
     "@babel/cli": "^7.18.10",

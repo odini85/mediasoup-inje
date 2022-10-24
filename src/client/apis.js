@@ -1,18 +1,28 @@
 import httpClient from "./modules/httpClient";
 
+// 로그인
 export function loginAPI(payload) {
   return httpClient.get("/login", payload);
 }
 
+// room 생성
 export function roomCreateAPI() {
   return httpClient.get("/room/create");
 }
 
+// room 목록 반환
 export function roomListAPI() {
   return httpClient.get("/room/list");
 }
 
-// signaling
+// room 참여자 목록 반환
+export function getPeersByRoomId(roomId) {
+  return httpClient.get(`/room/${roomId}/peers`);
+}
+
+/**
+ * signaling
+ */
 export function getRouterRTPCapabilitiesAPI() {
   return httpClient.get("/signaling/router-rtp-capabilities");
 }

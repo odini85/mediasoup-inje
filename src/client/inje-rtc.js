@@ -1,18 +1,24 @@
 import mediasoup from "mediasoup-client";
 import { request, sleep, log, err } from "./utils";
-import { CAM_VIDEO_SIMULCAST_ENCODINGS } from "./constant";
+import {
+  CAM_VIDEO_SIMULCAST_ENCODINGS,
+  MEDIA_TYPE,
+  TRANSPORT_DIRECTION,
+} from "./constant";
 import httpClient from "./modules/httpClient";
 import {
   getRouterRTPCapabilitiesAPI,
   createTransportAPI,
   connectTransportAPI,
   sendTrackAPI,
+  recvTrackAPI,
+  resumeConsumerAPI,
 } from "./apis";
 
 export default class InjeRTC {
   constructor(myPeerId) {
     this.state = {
-      myPeerId: myPeerId,
+      myPeerId,
       device: new mediasoup.Device(),
       localCam: null,
       joined: false,
@@ -31,17 +37,18 @@ export default class InjeRTC {
    * @description 회의를 제어한다.
    * @returns
    */
-  async loadDevice() {
+  async _loadDevice() {
     const { device } = this.state;
+    // mediasoup-client device가 로드되지 않은 경우(처음 연결)
+    if (device.loaded) {
+      return;
+    }
 
     try {
       // http 요청 - 새로운 피어임을 알린다.
       const { routerRtpCapabilities } = await getRouterRTPCapabilitiesAPI();
-      // mediasoup-client device가 로드되지 않은 경우(처음 연결)
-      if (!device.loaded) {
-        // 디바이스를 초기화(로드) 한다.
-        await device.load({ routerRtpCapabilities });
-      }
+      // 디바이스를 초기화(로드) 한다.
+      await device.load({ routerRtpCapabilities });
     } catch (e) {
       console.error(e);
       return;
@@ -49,29 +56,10 @@ export default class InjeRTC {
   }
 
   /**
-   * @title 카메라 스트림 전송
-   */
-  async sendCameraStreams() {
-    await this.loadDevice();
-    await this.startCamera();
-
-    if (!this.state.sendTransport) {
-      this.state.sendTransport = await this.createTransport("send");
-    }
-
-    // 비디오 전송을 시작
-    this.state.camVideoProducer = await this.state.sendTransport.produce({
-      track: this.state.localCam.getVideoTracks()[0],
-      encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
-      appData: { mediaTag: "cam-video" },
-    });
-  }
-
-  /**
    * @title 카메라 시작
    * @returns
    */
-  async startCamera() {
+  async _startCam() {
     if (this.state.localCam) {
       return;
     }
@@ -86,14 +74,84 @@ export default class InjeRTC {
   }
 
   /**
+   * @title 화면 공유 시작
+   * @returns
+   */
+  async _startScreen() {}
+
+  _getProduceParam(mediaType) {
+    switch (mediaType) {
+      case MEDIA_TYPE.CAM_VIDEO: {
+        return {
+          track: this.state.localCam.getVideoTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+      case MEDIA_TYPE.CAM_AUDIO: {
+        return {
+          track: this.state.localCam.getAudioTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+      case MEDIA_TYPE.SCREEN_VIDEO: {
+        return {
+          track: this.state.localCam.getVideoTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+      case MEDIA_TYPE.SCREEN_AUDIO: {
+        return {
+          track: this.state.localCam.getVideoTracks()[0],
+          encodings: CAM_VIDEO_SIMULCAST_ENCODINGS,
+          appData: { mediaType },
+        };
+      }
+    }
+  }
+
+  /**
+   * @title 카메라 스트림 전송
+   */
+  async produce(mediaType) {
+    await this._loadDevice();
+
+    switch (mediaType) {
+      case MEDIA_TYPE.CAM_VIDEO:
+      case MEDIA_TYPE.CAM_AUDIO: {
+        await this._startCam();
+        break;
+      }
+      case MEDIA_TYPE.SCREEN_VIDEO:
+      case MEDIA_TYPE.SCREEN_AUDIO: {
+        await this._startScreen();
+        break;
+      }
+    }
+
+    if (!this.state.sendTransport) {
+      this.state.sendTransport = await this._createTransport(
+        TRANSPORT_DIRECTION.SEND
+      );
+    }
+
+    const produceParam = this._getProduceParam(mediaType);
+
+    this.state.camVideoProducer = await this.state.sendTransport.produce(
+      produceParam
+    );
+  }
+
+  /**
    * @title transport 생성
    * @description transport를 생성하고, 전송 방향에 맞는 signal 로직을 연결한다.
    * @param {*} direction
    * @returns
    */
-  async createTransport(direction) {
+  async _createTransport(direction) {
     const { myPeerId, device } = this.state;
-    const roomId = myPeerId.split(".")[0];
     /**
      * 서버에 서버 측 transport 객체를 생성하도록 요청하고
      * 클라이언트 측 transport를 생성하는 데 필요한 정보를 다시 보내야한다.
@@ -101,7 +159,6 @@ export default class InjeRTC {
     let transport;
     // http 요청
     const { transportOptions } = await createTransportAPI({
-      roomId,
       peerId: myPeerId,
       direction,
     });
@@ -123,10 +180,10 @@ export default class InjeRTC {
       log("transport connect event", direction);
       // http 요청
       const { error } = await connectTransportAPI({
-        roomId,
         peerId: myPeerId,
         transportId: transportOptions.id,
         dtlsParameters,
+        direction,
       });
 
       if (error) {
@@ -145,14 +202,13 @@ export default class InjeRTC {
       transport.on(
         "produce",
         async ({ kind, rtpParameters, appData }, resolve, reject) => {
-          log("transport produce event", appData.mediaTag);
+          log("transport produce event", appData.mediaType);
           /**
            * 서버 측 producer 객체를 설정하기 위해 서버에게 우리의 정보를 전달하고 생산자 ID를 반환 받는다.
            * 성공 시 resolve() 또는 호출 실패 시 reject()  호출
            */
           // http 요청
           const { error, id } = await sendTrackAPI({
-            roomId,
             peerId: myPeerId,
             transportId: transportOptions.id,
             kind,
@@ -185,28 +241,30 @@ export default class InjeRTC {
   }
 
   /**
-   * @title track 구독
-   * @param {string} peerId
-   * @param {*} mediaTag
-   * @returns
+   * @title 스트림 소비
    */
-  async subscribeToTrack(peerId, mediaTag) {
-    log("subscribe to track", peerId, mediaTag);
+  async consume(mediaType, consumePeerId) {
+    await this._loadDevice();
 
     // receive transport 를 갖고 있지 않다면 receive transport를 생성한다.
     if (!this.state.recvTransport) {
-      this.state.recvTransport = await this.createTransport("recv");
+      this.state.recvTransport = await this._createTransport(
+        TRANSPORT_DIRECTION.RECEIVE
+      );
     }
     const { myPeerId, consumers, recvTransport, device } = this.state;
 
     // track을 위한 컨슈머 검색
-    const hasConsumer = !!consumers.find((c) => {
-      return c.appData.peerId === peerId && c.appData.mediaTag === mediaTag;
+    const hasConsumer = !!consumers.find((consumer) => {
+      return (
+        consumer.appData.peerId === consumePeerId &&
+        consumer.appData.mediaType === mediaType
+      );
     });
 
     if (hasConsumer) {
       // consumer 존재한다면, 호출되지 않아야 하므로 리턴처리
-      err("already have consumer for track", peerId, mediaTag);
+      err("already have consumer for track", peerId, mediaType);
       return;
     }
 
@@ -214,19 +272,16 @@ export default class InjeRTC {
      * http 요청 - 서버에 서버 측 consumer 객체를 만들고 전송하도록 요청하고
      * 클라이언트 측 consumer를 만드는 데 필요한 정보를 백업한다.
      */
-    const consumerParameters = await request({
-      endpoint: "recv-track",
-      payload: {
-        peerId: myPeerId,
-        mediaTag,
-        mediaPeerId: peerId,
-        rtpCapabilities: device.rtpCapabilities,
-      },
+    const consumerParameters = await recvTrackAPI({
+      peerId: myPeerId,
+      mediaType,
+      mediaPeerId: consumePeerId,
+      rtpCapabilities: device.rtpCapabilities,
     });
     log("consumer parameters", consumerParameters);
     const consumer = await recvTransport.consume({
       ...consumerParameters,
-      appData: { peerId, mediaTag },
+      appData: { peerId: consumePeerId, mediaType },
     });
 
     log("created new consumer", consumer.id);
@@ -240,48 +295,45 @@ export default class InjeRTC {
       await sleep(100);
     }
     // 클라이언트 준비 완료, peer에 미디어를 보내달라고 요청한다.
-    await request({
-      endpoint: "resume-consumer",
-      method: "post",
-      payload: { peerId: myPeerId, consumerId: consumer.id },
-    });
+    await resumeConsumerAPI({ peerId: myPeerId, consumerId: consumer.id });
+
     await consumer.resume();
 
     // consumer 목록 추가
     consumers.push(consumer);
 
-    await this.addVideoAudio(consumer);
+    // 비디오 추가
+    await this._addVideo(consumer, consumePeerId);
+
+    return consumer;
   }
 
   /**
-   * @title 비디오 또는 오디오 추가
+   * @title 비디오 추가
    * @param {*} consumer
    * @returns
    */
-  addVideoAudio(consumer) {
+  _addVideo(consumer, peerId) {
     if (!(consumer && consumer.track)) {
       return;
     }
-    const el = document.createElement(consumer.kind);
-    /**
-     * 오디오와 비디오 엘리먼트를 만들기 위해서 일부 어트리뷰트를 설정한다.
-     * 오디오를 재생하려면 mic/camera에서 캡처해야 한다.
-     */
-    if (consumer.kind === "video") {
-      el.setAttribute("playsinline", true);
-    } else {
-      el.setAttribute("playsinline", true);
-      el.setAttribute("autoplay", true);
-    }
-    document.querySelector("#video").appendChild(el);
-    el.srcObject = new MediaStream([consumer.track.clone()]);
-    el.consumer = consumer;
+
+    const videoEl = document.createElement(consumer.kind);
+    const wrapperEl = document.querySelector("#uid_room_peers_list");
+    wrapperEl.appendChild(videoEl);
+    console.log({ wrapperEl, peerId });
+    // const videoEl = wrapperEl.querySelector("video");
+
+    videoEl.setAttribute("playsinline", true);
+    videoEl.srcObject = new MediaStream([consumer.track.clone()]);
+
     /**
      * play의 성공을 기다리기보다 play 하기 전에 yield 하고 리턴한다.
      * play()는 producer 일시 중지를 해제할 때까지
      * producer 일시 중지 트랙에서 성공하지 못한다.
      */
-    el.play()
+    videoEl
+      .play()
       .then(() => {})
       .catch((e) => {
         err(e);

@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { MEDIA_TYPE, TRANSPORT_DIRECTION } from "../constant";
 
 export class RoomManager {
   constructor() {
@@ -28,8 +29,6 @@ class Room {
     this._id = id;
     this._hostUser = user;
     this._peers = new Map();
-    this._transports = new Map();
-    this._producers = new Map();
   }
   getId() {
     return this._id;
@@ -48,20 +47,36 @@ class Room {
   getPeers() {
     return [...this._peers.values()];
   }
+  getPeersVo() {
+    return this.getPeers().map((peer) => {
+      return peer.getVo();
+    });
+  }
+  // produce 중인 peers 반환
+  getProducersVo() {
+    const returnValue = [];
+    this._peers.forEach((peer, key) => {
+      const producer = peer.getProducer();
+      if (producer && !producer.closed && !producer.paused) {
+        returnValue.push(new ProducerInfoVo(peer));
+      }
+    });
+
+    return returnValue;
+  }
   getPeer(peerId) {
     return this._peers.get(peerId);
   }
-  getTransport(transportId) {
-    return this._transports.get(transportId);
-  }
-  setTransport(transport) {
-    this._transports.set(transport.id, transport);
-  }
-  getProducer(producerId) {
-    return this._producers.get(producerId);
-  }
-  setProducer(producer) {
-    this._producers.set(producer.id, producer);
+}
+
+class ProducerInfoVo {
+  constructor(peer) {
+    const producer = peer.getProducer();
+
+    this.peerId = peer.getId();
+    this.id = producer.id;
+    this.paused = producer.paused;
+    this.closed = producer.closed;
   }
 }
 
@@ -80,6 +95,24 @@ export class UserManager {
   }
 }
 
+class User {
+  constructor(id) {
+    this._id = id;
+  }
+  getId() {
+    return this._id;
+  }
+  getVo() {
+    return new UserVo(this);
+  }
+}
+
+class UserVo {
+  constructor(user) {
+    this.id = user.getId();
+  }
+}
+
 export class Peer {
   constructor(id) {
     this._id = id;
@@ -92,6 +125,12 @@ export class Peer {
       consumerLayers: {},
       stats: {},
     };
+    this._transport = {
+      [TRANSPORT_DIRECTION.SEND]: null,
+      [TRANSPORT_DIRECTION.RECEIVE]: null,
+    };
+    this._producer = null;
+    this._consumers = new Map();
   }
   getId() {
     return this._id;
@@ -102,13 +141,36 @@ export class Peer {
   getUser() {
     return this._user;
   }
+  setTransport(direction, transport) {
+    this._transport[direction] = transport;
+    this._transport[transport.id] = transport;
+  }
+  getTransportOfDirection(direction) {
+    return this._transport[direction];
+  }
+  getTransport(transportId) {
+    return this._transport[transportId];
+  }
+  setProducer(producer) {
+    this._producer = producer;
+  }
+  getProducer() {
+    return this._producer;
+  }
+  addConsumer(consumer) {
+    this._consumers.set(consumer.id, consumer);
+  }
+  getConsumer(consumerId) {
+    return this._consumers.get(consumerId);
+  }
+  getVo() {
+    return new PeerVo(this);
+  }
 }
 
-class User {
-  constructor(id) {
-    this._id = id;
-  }
-  getId() {
-    return this._id;
+class PeerVo {
+  constructor(peer) {
+    this.id = peer.getId();
+    this.user = peer.getUser().getVo();
   }
 }

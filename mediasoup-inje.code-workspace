@@ -1,8 +1,16 @@
 {
   "folders": [
     {
+      "name": "archive",
+      "path": "./archive"
+    },
+    {
       "name": "client",
       "path": "./client"
+    },
+    {
+      "name": "docs",
+      "path": "./docs"
     },
     {
       "name": "server",

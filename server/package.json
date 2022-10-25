@@ -1,0 +1,28 @@
+{
+  "name": "simple-mediasoup-server",
+  "version": "1.0.0",
+  "description": "mediasoup test",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "serve:dev": "nodemon --inspect ./bin/www"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.18.10",
+    "@babel/core": "^7.18.13",
+    "@babel/node": "^7.18.10",
+    "@babel/preset-env": "^7.18.10",
+    "nodemon": "^2.0.19",
+    "selfsigned": "^2.1.1"
+  },
+  "dependencies": {
+    "axios": "^1.1.2",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.18.1",
+    "mediasoup": "^3.6.24",
+    "socket.io": "^4.5.2",
+    "uuid": "^9.0.0",
+    "ws": "^8.8.1"
+  }
+}
